@@ -4,6 +4,7 @@ import Navbar from './components/Navbar'
 import Login from './pages/Login'
 import Register from './pages/Register'
 import TutorProfileSetup from './pages/TutorProfileSetup'
+import Profile from './pages/Profile'
 import Discovery from './pages/Discovery'
 import TutorProfile from './pages/TutorProfile'
 import Messages from './pages/Messages'
@@ -26,7 +27,8 @@ export default function App() {
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
-          <Route path="/setup-profile" element={<ProtectedRoute><TutorProfileSetup /></ProtectedRoute>} />
+          <Route path="/setup-profile" element={<Navigate to="/profile" replace />} />
+          <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
           <Route path="/discovery" element={<ProtectedRoute><Discovery /></ProtectedRoute>} />
           <Route path="/tutor/:id" element={<ProtectedRoute><TutorProfile /></ProtectedRoute>} />
           <Route path="/messages" element={<ProtectedRoute><Messages /></ProtectedRoute>}>

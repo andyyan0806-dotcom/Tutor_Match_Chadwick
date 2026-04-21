@@ -303,6 +303,7 @@ textarea { resize: vertical; min-height: 100px; }
   object-fit: cover;
 }
 .avatar-lg { width: 72px; height: 72px; font-size: 1.6rem; }
+.avatar-xl { width: 88px; height: 88px; font-size: 2rem; }
 .avatar-photo { object-fit: cover; background: var(--gray-100); }
 .tutor-card-name { font-weight: 700; font-size: 1rem; margin-bottom: 2px; }
 .tutor-card-meta { font-size: .82rem; color: var(--gray-600); }
@@ -546,6 +547,28 @@ textarea { resize: vertical; min-height: 100px; }
   margin-bottom: 1rem;
   font-size: .875rem;
 }
+
+/* My Profile page header */
+.profile-page-header {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  background: white;
+  border-radius: var(--radius);
+  padding: 1.75rem;
+  box-shadow: var(--shadow);
+}
+.profile-page-name { font-size: 1.5rem; font-weight: 800; margin-bottom: .2rem; }
+.profile-page-meta { color: var(--gray-600); font-size: .9rem; margin-bottom: .6rem; }
+.role-badge {
+  display: inline-block;
+  padding: .2rem .75rem;
+  border-radius: 20px;
+  font-size: .78rem;
+  font-weight: 600;
+}
+.role-badge--tutor { background: var(--blue-pale); color: var(--blue); }
+.role-badge--student { background: #f0fdf4; color: #16a34a; }
 
 /* Setup profile page */
 .setup-card {

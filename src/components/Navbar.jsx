@@ -17,9 +17,7 @@ export default function Navbar() {
       <div className="navbar-links">
         <Link to="/discovery">Find Tutors</Link>
         <Link to="/messages">Messages</Link>
-        {profile?.role === 'tutor' && (
-          <Link to="/setup-profile">My Listing</Link>
-        )}
+        <Link to="/profile">My Profile</Link>
       </div>
       <div className="navbar-right">
         {profile && (
