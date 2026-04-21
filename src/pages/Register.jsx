@@ -140,7 +140,7 @@ export default function Register() {
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@chadwick.edu"
+                placeholder="____@chadwickschool.org"
                 required
               />
             </div>
