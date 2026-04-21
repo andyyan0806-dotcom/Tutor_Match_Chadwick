@@ -1,4 +1,4 @@
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, NavLink, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 
@@ -11,13 +11,15 @@ export default function Navbar() {
     navigate('/login')
   }
 
+  const linkClass = ({ isActive }) => isActive ? 'active' : ''
+
   return (
     <nav className="navbar">
       <Link to="/discovery" className="navbar-brand">TutorMatch</Link>
       <div className="navbar-links">
-        <Link to="/discovery">Find Tutors</Link>
-        <Link to="/messages">Messages</Link>
-        <Link to="/profile">My Profile</Link>
+        <NavLink to="/discovery" className={linkClass}>Find Tutors</NavLink>
+        <NavLink to="/messages" className={linkClass}>Messages</NavLink>
+        <NavLink to="/profile" className={linkClass}>My Profile</NavLink>
       </div>
       <div className="navbar-right">
         {profile && (

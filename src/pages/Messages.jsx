@@ -72,9 +72,7 @@ export default function Messages() {
     <div className="content-wrap" style={{ paddingTop: '1.5rem' }}>
       <div className="messages-layout">
         <div className="conversations-list">
-          <div style={{ padding: '.75rem 1rem', fontWeight: 700, fontSize: '.9rem', borderBottom: '1px solid var(--gray-200)', color: 'var(--gray-600)' }}>
-            Conversations
-          </div>
+          <div className="conversations-list-header">Conversations</div>
           {loading && (
             <div style={{ padding: '1rem', color: 'var(--gray-400)', fontSize: '.85rem' }}>Loading…</div>
           )}
@@ -89,9 +87,7 @@ export default function Messages() {
               to={`/messages/${c.partnerId}`}
               className={`conversation-item ${activeId === c.partnerId ? 'active' : ''}`}
             >
-              <div className="avatar" style={{ width: 36, height: 36, fontSize: '.85rem' }}>
-                {initials(c.partner?.name)}
-              </div>
+              <div className="conversation-avatar">{initials(c.partner?.name)}</div>
               <div className="conversation-info">
                 <div className="conversation-name">{c.partner?.name || 'Unknown'}</div>
                 <div className="conversation-preview">{c.lastMessage}</div>

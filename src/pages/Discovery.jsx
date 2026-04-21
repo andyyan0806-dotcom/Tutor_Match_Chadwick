@@ -72,15 +72,17 @@ export default function Discovery() {
 
   return (
     <div className="content-wrap">
-      <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1rem' }}>
-        <h1 className="page-title" style={{ margin: 0 }}>Find a Tutor</h1>
-        <input
-          type="text"
-          placeholder="Search by name, subject, or keyword…"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          style={{ flex: 1, maxWidth: 340 }}
-        />
+      <div className="discovery-top">
+        <h1 className="page-title">Find a Tutor</h1>
+        <div className="search-input-wrap">
+          <span className="search-icon">⌕</span>
+          <input
+            type="text"
+            placeholder="Search by name, subject, or keyword…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
       </div>
 
       <div className="filter-bar">
