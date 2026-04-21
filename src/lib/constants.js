@@ -9,41 +9,84 @@ export const GRADE_LEVELS = [
 
 export const SUBJECT_GROUPS = [
   {
-    group: 'Group 1 – Language & Literature',
-    subjects: ['English A Literature', 'Korean A Literature', 'English A Language & Literature'],
-  },
-  {
-    group: 'Group 2 – Language Acquisition',
-    subjects: ['Korean B', 'Spanish B', 'French B', 'Chinese B'],
-  },
-  {
-    group: 'Group 3 – Individuals & Societies',
-    subjects: ['History', 'Economics', 'Psychology', 'Geography', 'Business Management', 'Global Politics'],
-  },
-  {
-    group: 'Group 4 – Sciences',
-    subjects: ['Biology', 'Chemistry', 'Physics', 'Environmental Systems & Societies', 'Computer Science'],
-  },
-  {
-    group: 'Group 5 – Mathematics',
+    group: 'Language',
     subjects: [
-      'Mathematics: Analysis and Approaches HL',
-      'Mathematics: Analysis and Approaches SL',
-      'Mathematics: Applications and Interpretation HL',
-      'Mathematics: Applications and Interpretation SL',
+      'English Lang & Lit HL',
+      'English Lang & Lit SL',
+      'English Lit HL',
+      'English Lit SL',
+      'Korean Lang & Lit HL',
+      'Korean Lang & Lit SL',
+      'Korean Lit HL',
+      'Korean Lit SL',
+      'Spanish HL',
+      'Spanish SL',
+      'Mandarin HL',
+      'Mandarin SL',
     ],
   },
   {
-    group: 'Group 6 – The Arts',
-    subjects: ['Visual Arts', 'Music', 'Theatre', 'Film'],
+    group: 'Math',
+    subjects: [
+      'Math AI HL',
+      'Math AI SL',
+      'Math AA HL',
+      'Math AA SL',
+    ],
+  },
+  {
+    group: 'Science',
+    subjects: [
+      'Biology HL',
+      'Biology SL',
+      'Chemistry HL',
+      'Chemistry SL',
+      'Physics HL',
+      'Physics SL',
+      'Environmental Systems & Societies HL',
+      'Environmental Systems & Societies SL',
+    ],
+  },
+  {
+    group: 'Individuals & Societies',
+    subjects: [
+      'Business Management HL',
+      'Business Management SL',
+      'Economics HL',
+      'Economics SL',
+      'Global Politics HL',
+      'Global Politics SL',
+      'Psychology HL',
+      'Psychology SL',
+      'Geography HL',
+      'Geography SL',
+      'History HL',
+      'History SL',
+    ],
+  },
+  {
+    group: 'Art',
+    subjects: [
+      'Visual Art HL',
+      'Visual Art SL',
+      'Film HL',
+      'Film SL',
+      'Media Art HL',
+      'Media Art SL',
+    ],
   },
   {
     group: 'IB Core',
-    subjects: ['Theory of Knowledge (TOK)', 'Extended Essay (EE)'],
+    subjects: [
+      'Theory of Knowledge',
+      'Extended Essay',
+    ],
   },
   {
     group: 'Academic Counseling',
-    subjects: ['University Application Support'],
+    subjects: [
+      'College Application',
+    ],
   },
 ]
 

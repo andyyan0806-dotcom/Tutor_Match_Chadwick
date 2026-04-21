@@ -37,7 +37,7 @@ export default function Login() {
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@chadwick.edu"
+              placeholder="____@chadwickschool.org"
               required
               autoFocus
             />

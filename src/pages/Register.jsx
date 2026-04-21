@@ -26,6 +26,7 @@ export default function Register() {
 
     const { data, error: signUpErr } = await supabase.auth.signUp({ email, password })
     if (signUpErr) { setError(signUpErr.message); setLoading(false); return }
+    if (!data.session) { setError('Please disable email confirmation in Supabase Auth settings.'); setLoading(false); return }
 
     const userId = data.user.id
     const { error: insertErr } = await supabase.from('users').insert({
