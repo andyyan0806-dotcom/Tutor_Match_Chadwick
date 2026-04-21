@@ -9,7 +9,7 @@ function initials(name) {
 }
 
 export default function Discovery() {
-  const [tutors, setTutors] = useState([])
+  const [posts, setPosts] = useState([])
   const [loading, setLoading] = useState(true)
   const [activeGroup, setActiveGroup] = useState(null)
   const [activeSubject, setActiveSubject] = useState(null)
@@ -18,14 +18,17 @@ export default function Discovery() {
   useEffect(() => {
     async function load() {
       const { data } = await supabase
-        .from('tutor_profiles')
+        .from('posts')
         .select(`
-          *,
-          user:users(id, name, grade),
-          reviews(rating)
+          id, title, subjects, description, tutor_id,
+          user:users!posts_tutor_id_fkey (
+            id, name, grade,
+            tutor_profiles ( university, uni_grade, photo_url ),
+            reviews ( rating )
+          )
         `)
         .eq('is_active', true)
-      setTutors(data || [])
+      setPosts(data || [])
       setLoading(false)
     }
     load()
@@ -33,8 +36,8 @@ export default function Discovery() {
 
   const groups = SUBJECT_GROUPS.map((g) => g.group)
 
-  function matchesFilter(tutor) {
-    const subjects = tutor.subjects || []
+  function matchesFilter(post) {
+    const subjects = post.subjects || []
     if (activeSubject && !subjects.includes(activeSubject)) return false
     if (activeGroup && !activeSubject) {
       const groupSubjects = SUBJECT_GROUPS.find((g) => g.group === activeGroup)?.subjects || []
@@ -42,15 +45,16 @@ export default function Discovery() {
     }
     if (search) {
       const q = search.toLowerCase()
-      const nameMatch = tutor.user?.name?.toLowerCase().includes(q)
-      const bioMatch = tutor.bio?.toLowerCase().includes(q)
+      const nameMatch = post.user?.name?.toLowerCase().includes(q)
+      const titleMatch = post.title?.toLowerCase().includes(q)
+      const descMatch = post.description?.toLowerCase().includes(q)
       const subjectMatch = subjects.some((s) => s.toLowerCase().includes(q))
-      if (!nameMatch && !bioMatch && !subjectMatch) return false
+      if (!nameMatch && !titleMatch && !descMatch && !subjectMatch) return false
     }
     return true
   }
 
-  const filtered = tutors.filter(matchesFilter)
+  const filtered = posts.filter(matchesFilter)
 
   function avgRating(reviews) {
     if (!reviews?.length) return null
@@ -129,31 +133,49 @@ export default function Discovery() {
         </div>
       ) : (
         <div className="tutor-grid">
-          {filtered.map((tutor) => {
-            const avg = avgRating(tutor.reviews)
+          {filtered.map((post) => {
+            const tp = post.user?.tutor_profiles?.[0]
+            const reviews = post.user?.reviews || []
+            const avg = avgRating(reviews)
             return (
-              <Link key={tutor.user_id} to={`/tutor/${tutor.user_id}`} className="tutor-card">
+              <Link key={post.tutor_id} to={`/tutor/${post.tutor_id}`} className="tutor-card">
                 <div className="tutor-card-header">
-                  <div className="avatar">{initials(tutor.user?.name)}</div>
+                  {tp?.photo_url ? (
+                    <img
+                      src={tp.photo_url}
+                      alt={post.user?.name}
+                      className="avatar avatar-photo"
+                      onError={(e) => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'flex' }}
+                    />
+                  ) : null}
+                  <div
+                    className="avatar"
+                    style={tp?.photo_url ? { display: 'none' } : {}}
+                  >
+                    {initials(post.user?.name)}
+                  </div>
                   <div>
-                    <div className="tutor-card-name">{tutor.user?.name}</div>
-                    <div className="tutor-card-meta">{tutor.user?.grade}</div>
-                    {tutor.university && (
-                      <div className="tutor-card-meta">{tutor.university}</div>
+                    <div className="tutor-card-name">{post.user?.name}</div>
+                    <div className="tutor-card-meta">{post.user?.grade}</div>
+                    {tp?.university && (
+                      <div className="tutor-card-meta">{tp.university}</div>
                     )}
                   </div>
                 </div>
+                {post.title && (
+                  <div className="tutor-card-title">{post.title}</div>
+                )}
                 <div className="tutor-card-subjects">
-                  {(tutor.subjects || []).slice(0, 4).map((s) => (
+                  {(post.subjects || []).slice(0, 4).map((s) => (
                     <span key={s} className="tag">{s}</span>
                   ))}
-                  {(tutor.subjects || []).length > 4 && (
-                    <span className="tag">+{tutor.subjects.length - 4} more</span>
+                  {(post.subjects || []).length > 4 && (
+                    <span className="tag">+{post.subjects.length - 4} more</span>
                   )}
                 </div>
-                <div className="tutor-card-bio">{tutor.bio}</div>
+                <div className="tutor-card-bio">{post.description}</div>
                 {avg !== null ? (
-                  <StarDisplay value={avg} count={tutor.reviews.length} />
+                  <StarDisplay value={avg} count={reviews.length} />
                 ) : (
                   <div className="rating-row">No reviews yet</div>
                 )}

@@ -38,7 +38,7 @@ export default function Register() {
     if (insertErr) { setError(insertErr.message); setLoading(false); return }
 
     if (role === 'tutor') {
-      await supabase.from('tutor_profiles').insert({ user_id: userId, subjects: [], bio: '', is_active: false })
+      await supabase.from('tutor_profiles').insert({ user_id: userId })
       navigate('/setup-profile')
     } else {
       navigate('/discovery')

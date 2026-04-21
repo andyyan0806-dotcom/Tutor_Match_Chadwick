@@ -8,16 +8,26 @@ create table public.users (
   created_at timestamptz default now()
 );
 
--- Tutor profiles
+-- Tutor identity profile (who the tutor is)
 create table public.tutor_profiles (
   user_id uuid primary key references public.users(id) on delete cascade,
   university text,
   uni_grade text,
   ib_scores text,
-  subjects text[] not null default '{}',
+  photo_url text,
   bio text not null default '',
-  is_active boolean not null default false,
   updated_at timestamptz default now()
+);
+
+-- Tutor listing posts (what the tutor is offering — one per tutor)
+create table public.posts (
+  id uuid primary key default gen_random_uuid(),
+  tutor_id uuid not null unique references public.users(id) on delete cascade,
+  title text not null default '',
+  subjects text[] not null default '{}',
+  description text not null default '',
+  is_active boolean not null default false,
+  created_at timestamptz default now()
 );
 
 -- Messages
@@ -42,7 +52,8 @@ create table public.reviews (
 );
 
 -- Indexes
-create index on public.tutor_profiles (is_active);
+create index on public.posts (is_active);
+create index on public.posts (tutor_id);
 create index on public.messages (sender_id, receiver_id);
 create index on public.messages (receiver_id, read_status);
 create index on public.reviews (tutor_id);
@@ -50,6 +61,7 @@ create index on public.reviews (tutor_id);
 -- Enable Row Level Security
 alter table public.users enable row level security;
 alter table public.tutor_profiles enable row level security;
+alter table public.posts enable row level security;
 alter table public.messages enable row level security;
 alter table public.reviews enable row level security;
 
@@ -64,11 +76,18 @@ create policy "Users can update their own row"
   on public.users for update using (auth.uid() = id);
 
 -- RLS Policies: tutor_profiles
-create policy "Anyone can view active tutor profiles"
+create policy "Anyone can view tutor profiles"
   on public.tutor_profiles for select using (true);
 
 create policy "Tutors can manage their own profile"
   on public.tutor_profiles for all using (auth.uid() = user_id);
+
+-- RLS Policies: posts
+create policy "Anyone can view active posts"
+  on public.posts for select using (true);
+
+create policy "Tutors can manage their own post"
+  on public.posts for all using (auth.uid() = tutor_id);
 
 -- RLS Policies: messages
 create policy "Users can view their own messages"

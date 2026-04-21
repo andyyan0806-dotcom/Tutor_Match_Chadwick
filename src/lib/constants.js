@@ -43,7 +43,7 @@ export const SUBJECT_GROUPS = [
   },
   {
     group: 'Academic Counseling',
-    subjects: ['University Application Support', 'College Essay Writing', 'SAT / ACT Prep'],
+    subjects: ['University Application Support'],
   },
 ]
 

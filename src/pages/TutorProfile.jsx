@@ -17,10 +17,11 @@ export default function TutorProfile() {
   const { session, profile } = useAuth()
   const navigate = useNavigate()
 
-  const [tutor, setTutor] = useState(null)
+  const [post, setPost] = useState(null)
   const [reviews, setReviews] = useState([])
   const [myReview, setMyReview] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [photoError, setPhotoError] = useState(false)
 
   const [rating, setRating] = useState(0)
   const [comment, setComment] = useState('')
@@ -31,19 +32,25 @@ export default function TutorProfile() {
 
   useEffect(() => {
     async function load() {
-      const [{ data: tp }, { data: revs }] = await Promise.all([
+      const [{ data: postData }, { data: revs }] = await Promise.all([
         supabase
-          .from('tutor_profiles')
-          .select('*, user:users(id, name, grade)')
-          .eq('user_id', id)
-          .single(),
+          .from('posts')
+          .select(`
+            id, title, subjects, description,
+            user:users!posts_tutor_id_fkey (
+              id, name, grade,
+              tutor_profiles ( university, uni_grade, ib_scores, photo_url )
+            )
+          `)
+          .eq('tutor_id', id)
+          .maybeSingle(),
         supabase
           .from('reviews')
           .select('*, student:users(name)')
           .eq('tutor_id', id)
           .order('created_at', { ascending: false }),
       ])
-      setTutor(tp)
+      setPost(postData)
       setReviews(revs || [])
       const mine = revs?.find((r) => r.student_id === session?.user?.id)
       if (mine) setMyReview(mine)
@@ -51,10 +58,6 @@ export default function TutorProfile() {
     }
     load()
   }, [id, session])
-
-  async function handleMessage() {
-    navigate(`/messages/${id}`)
-  }
 
   async function submitReview(e) {
     e.preventDefault()
@@ -80,8 +83,9 @@ export default function TutorProfile() {
   }
 
   if (loading) return <div className="loading">Loading profile…</div>
-  if (!tutor) return <div className="content-wrap"><p>Tutor not found.</p></div>
+  if (!post) return <div className="content-wrap"><p>Tutor not found.</p></div>
 
+  const tp = post.user?.tutor_profiles?.[0]
   const avgRating = reviews.length
     ? reviews.reduce((s, r) => s + r.rating, 0) / reviews.length
     : null
@@ -89,31 +93,43 @@ export default function TutorProfile() {
   return (
     <div className="content-wrap">
       <div className="profile-header">
-        <div className={`avatar avatar-lg`}>{initials(tutor.user?.name)}</div>
+        {tp?.photo_url && !photoError ? (
+          <img
+            src={tp.photo_url}
+            alt={post.user?.name}
+            className="avatar avatar-lg avatar-photo"
+            onError={() => setPhotoError(true)}
+          />
+        ) : (
+          <div className="avatar avatar-lg">{initials(post.user?.name)}</div>
+        )}
         <div className="profile-info">
-          <div className="profile-name">{tutor.user?.name}</div>
+          <div className="profile-name">{post.user?.name}</div>
           <div className="profile-meta">
-            {tutor.user?.grade}
-            {tutor.university && ` · ${tutor.university}`}
-            {tutor.uni_grade && ` (${tutor.uni_grade})`}
+            {post.user?.grade}
+            {tp?.university && ` · ${tp.university}`}
+            {tp?.uni_grade && ` (${tp.uni_grade})`}
           </div>
-          {tutor.ib_scores && (
+          {tp?.ib_scores && (
             <div className="profile-meta" style={{ marginBottom: '.5rem' }}>
-              Scores: {tutor.ib_scores}
+              Scores: {tp.ib_scores}
             </div>
           )}
           {avgRating !== null && (
             <StarDisplay value={avgRating} count={reviews.length} />
           )}
+          {post.title && (
+            <div className="profile-listing-title">{post.title}</div>
+          )}
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '.4rem', margin: '.75rem 0' }}>
-            {(tutor.subjects || []).map((s) => (
+            {(post.subjects || []).map((s) => (
               <span key={s} className="tag">{s}</span>
             ))}
           </div>
-          <div className="profile-bio">{tutor.bio}</div>
+          <div className="profile-bio">{post.description}</div>
           {!isOwnProfile && (
             <div className="profile-actions">
-              <button className="btn btn-primary" onClick={handleMessage}>
+              <button className="btn btn-primary" onClick={() => navigate(`/messages/${id}`)}>
                 Send Message
               </button>
             </div>
