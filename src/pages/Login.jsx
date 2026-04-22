@@ -26,7 +26,7 @@ export default function Login() {
     <div className="auth-page">
       <div className="auth-card">
         <div className="auth-logo">
-          <h1>TutorMatch</h1>
+          <h1>Stunion</h1>
           <p>Chadwick International School</p>
         </div>
         {error && <div className="error-msg">{error}</div>}

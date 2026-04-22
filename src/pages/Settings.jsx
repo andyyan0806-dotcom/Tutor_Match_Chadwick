@@ -166,7 +166,7 @@ export default function Settings() {
 
         <div style={{ marginBottom: '1.25rem' }}>
           <p style={{ color: 'var(--gray)', fontSize: '.9rem', marginBottom: '.5rem' }}>
-            Sign out of TutorMatch on this device.
+            Sign out of Stunion on this device.
           </p>
           <button className="btn btn-secondary" onClick={handleSignOut}>
             Log out

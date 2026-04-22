@@ -57,7 +57,7 @@ export default function Register() {
       <div className="auth-card">
         <div className="auth-logo">
           <h1>Create Account</h1>
-          <p>Join TutorMatch at Chadwick</p>
+          <p>Join Stunion at Chadwick</p>
         </div>
 
         <div className="steps">

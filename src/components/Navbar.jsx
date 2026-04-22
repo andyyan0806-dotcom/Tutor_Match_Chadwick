@@ -15,7 +15,7 @@ export default function Navbar() {
 
   return (
     <nav className="navbar">
-      <Link to="/discovery" className="navbar-brand">TutorMatch</Link>
+      <Link to="/discovery" className="navbar-brand">Stunion</Link>
       <div className="navbar-links">
         <NavLink to="/discovery" className={linkClass}>Find Tutors</NavLink>
         <NavLink to="/messages" className={linkClass}>Messages</NavLink>
