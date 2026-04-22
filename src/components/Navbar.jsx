@@ -21,6 +21,9 @@ export default function Navbar() {
         <NavLink to="/messages" className={linkClass}>Messages</NavLink>
         <NavLink to="/profile" className={linkClass}>My Profile</NavLink>
         <NavLink to="/settings" className={linkClass}>Settings</NavLink>
+        {profile?.email === 'andyyan0806@gmail.com' && (
+          <NavLink to="/admin" className={linkClass}>Admin</NavLink>
+        )}
       </div>
       <div className="navbar-right">
         {profile && (

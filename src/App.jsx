@@ -10,6 +10,7 @@ import TutorProfile from './pages/TutorProfile'
 import Messages from './pages/Messages'
 import Conversation from './pages/Conversation'
 import Settings from './pages/Settings'
+import Admin from './pages/Admin'
 
 function ProtectedRoute({ children }) {
   const { session } = useAuth()
@@ -36,6 +37,7 @@ export default function App() {
           <Route path="/messages" element={<ProtectedRoute><Messages /></ProtectedRoute>}>
             <Route path=":userId" element={<Conversation />} />
           </Route>
+          <Route path="/admin" element={<ProtectedRoute><Admin /></ProtectedRoute>} />
           <Route path="*" element={<Navigate to={session ? '/discovery' : '/login'} replace />} />
         </Routes>
       </div>

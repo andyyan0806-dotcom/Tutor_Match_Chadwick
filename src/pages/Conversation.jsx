@@ -3,6 +3,11 @@ import { useParams, Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 
+// Fill in your bank details below
+const PAYMENT_BANK = '토스 뱅크'        // e.g. 카카오뱅크, 국민은행, 신한은행
+const PAYMENT_ACCOUNT = '1908-4431-9433'  // your account number
+const PAYMENT_NAME = 'ㅇㄱㅂ'            // account holder name
+
 function initials(name) {
   return name?.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase() || '?'
 }
@@ -11,27 +16,97 @@ function formatTime(ts) {
   return new Date(ts).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
 }
 
+function daysLeft(expiresAt) {
+  const diff = new Date(expiresAt) - Date.now()
+  if (diff <= 0) return 0
+  return Math.ceil(diff / (1000 * 60 * 60 * 24))
+}
+
 export default function Conversation() {
   const { userId: partnerId } = useParams()
-  const { session } = useAuth()
+  const { session, profile } = useAuth()
   const myId = session?.user?.id
 
   const [partner, setPartner] = useState(null)
   const [messages, setMessages] = useState([])
+  const [match, setMatch] = useState(undefined) // undefined = not yet fetched, null = no match exists
   const [text, setText] = useState('')
   const [sending, setSending] = useState(false)
+  const [showExtensionForm, setShowExtensionForm] = useState(false)
+  const [extensionReason, setExtensionReason] = useState('')
+  const [extensionSubmitted, setExtensionSubmitted] = useState(false)
+  const [showPaymentModal, setShowPaymentModal] = useState(false)
   const bottomRef = useRef(null)
 
+  // Fetch partner (include role so we can determine student/tutor)
   useEffect(() => {
     if (!partnerId) return
     supabase
       .from('users')
-      .select('id, name, grade')
+      .select('id, name, grade, role')
       .eq('id', partnerId)
       .single()
       .then(({ data }) => setPartner(data))
   }, [partnerId])
 
+  // Fetch match once both roles are known
+  useEffect(() => {
+    if (!myId || !partnerId || !profile || !partner) return
+
+    const myRole = profile.role
+    const partnerRole = partner.role
+
+    // Only show match UI for student↔tutor conversations
+    if (!myRole || !partnerRole || myRole === partnerRole) {
+      setMatch(null)
+      return
+    }
+
+    const studentId = myRole === 'student' ? myId : partnerId
+    const tutorId = myRole === 'tutor' ? myId : partnerId
+
+    async function fetchMatch() {
+      const { data } = await supabase
+        .from('matches')
+        .select('*')
+        .eq('student_id', studentId)
+        .eq('tutor_id', tutorId)
+        .maybeSingle()
+
+      if (!data) {
+        setMatch(null)
+        return
+      }
+
+      // Auto-expire client-side if the window passed
+      if (data.status === 'pending' && new Date(data.expires_at) < new Date()) {
+        const { data: updated } = await supabase
+          .from('matches')
+          .update({ status: 'expired' })
+          .eq('id', data.id)
+          .select()
+          .single()
+        setMatch(updated ?? { ...data, status: 'expired' })
+      } else {
+        setMatch(data)
+      }
+    }
+
+    fetchMatch()
+
+    // Realtime: reflect when either party clicks Start Tutoring or admin marks paid
+    const channel = supabase
+      .channel(`match-${studentId}-${tutorId}`)
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'matches' }, (payload) => {
+        const m = payload.new
+        if (m.student_id === studentId && m.tutor_id === tutorId) setMatch(m)
+      })
+      .subscribe()
+
+    return () => supabase.removeChannel(channel)
+  }, [myId, partnerId, profile?.role, partner?.role]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Load messages + realtime subscription
   useEffect(() => {
     if (!myId || !partnerId) return
 
@@ -45,7 +120,6 @@ export default function Conversation() {
         .order('timestamp', { ascending: true })
       setMessages(data || [])
 
-      // Mark incoming messages as read
       await supabase
         .from('messages')
         .update({ read_status: true })
@@ -58,22 +132,18 @@ export default function Conversation() {
 
     const channel = supabase
       .channel(`conv-${myId}-${partnerId}`)
-      .on(
-        'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'messages' },
-        (payload) => {
-          const m = payload.new
-          const relevant =
-            (m.sender_id === myId && m.receiver_id === partnerId) ||
-            (m.sender_id === partnerId && m.receiver_id === myId)
-          if (relevant) {
-            setMessages((prev) => [...prev, m])
-            if (m.receiver_id === myId) {
-              supabase.from('messages').update({ read_status: true }).eq('id', m.id)
-            }
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, (payload) => {
+        const m = payload.new
+        const relevant =
+          (m.sender_id === myId && m.receiver_id === partnerId) ||
+          (m.sender_id === partnerId && m.receiver_id === myId)
+        if (relevant) {
+          setMessages((prev) => [...prev, m])
+          if (m.receiver_id === myId) {
+            supabase.from('messages').update({ read_status: true }).eq('id', m.id)
           }
         }
-      )
+      })
       .subscribe()
 
     return () => supabase.removeChannel(channel)
@@ -87,6 +157,21 @@ export default function Conversation() {
     e.preventDefault()
     if (!text.trim() || sending) return
     setSending(true)
+
+    // Create match on first message from student to tutor
+    if (match === null && profile?.role === 'student' && partner?.role === 'tutor') {
+      const { data: newMatch } = await supabase
+        .from('matches')
+        .insert({
+          student_id: myId,
+          tutor_id: partnerId,
+          expires_at: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString(),
+        })
+        .select()
+        .single()
+      if (newMatch) setMatch(newMatch)
+    }
+
     await supabase.from('messages').insert({
       sender_id: myId,
       receiver_id: partnerId,
@@ -105,8 +190,38 @@ export default function Conversation() {
     }
   }
 
+  async function handleStartTutoring() {
+    if (!match) return
+    const { data: updated } = await supabase
+      .from('matches')
+      .update({ status: 'active', activated_at: new Date().toISOString() })
+      .eq('id', match.id)
+      .select()
+      .single()
+    if (updated) setMatch(updated)
+    setShowPaymentModal(true)
+  }
+
+  async function handleSubmitExtension() {
+    if (!match) return
+    const { error } = await supabase.from('extension_requests').insert({
+      match_id: match.id,
+      requested_by: myId,
+      reason: extensionReason.trim() || null,
+    })
+    if (!error) {
+      setExtensionSubmitted(true)
+      setShowExtensionForm(false)
+      setExtensionReason('')
+    }
+  }
+
+  const isExpired = match?.status === 'expired' ||
+    (match?.status === 'pending' && new Date(match?.expires_at) < new Date())
+
   return (
     <div className="chat-window">
+      {/* Header */}
       <div className="chat-header">
         <div className="avatar" style={{ width: 32, height: 32, fontSize: '.8rem' }}>
           {initials(partner?.name)}
@@ -121,40 +236,136 @@ export default function Conversation() {
         ) : '…'}
       </div>
 
-      <div className="chat-messages">
-        {messages.length === 0 && (
-          <div style={{ textAlign: 'center', color: 'var(--gray-400)', fontSize: '.85rem', marginTop: '2rem' }}>
-            No messages yet. Say hello!
+      {/* Match banner — pending */}
+      {match && !isExpired && match.status === 'pending' && (
+        <div className="match-banner match-banner--pending">
+          <span className="match-banner-label">
+            {daysLeft(match.expires_at) > 0
+              ? `${daysLeft(match.expires_at)} day${daysLeft(match.expires_at) !== 1 ? 's' : ''} left to decide`
+              : 'Expires today'}
+          </span>
+          <div className="match-banner-actions">
+            <button className="btn btn-primary btn-sm" onClick={handleStartTutoring}>
+              Start Tutoring
+            </button>
+            {extensionSubmitted ? (
+              <span className="match-banner-note">Extension requested</span>
+            ) : (
+              <button className="btn btn-secondary btn-sm" onClick={() => setShowExtensionForm((v) => !v)}>
+                Request Extension
+              </button>
+            )}
           </div>
-        )}
-        {messages.map((m) => {
-          const mine = m.sender_id === myId
-          return (
-            <div key={m.id}>
-              <div className={`message-bubble ${mine ? 'mine' : 'theirs'}`}>
-                {m.content}
-              </div>
-              <div className={`message-time ${mine ? '' : 'theirs'}`}>
-                {formatTime(m.timestamp)}
-              </div>
-            </div>
-          )
-        })}
-        <div ref={bottomRef} />
-      </div>
+        </div>
+      )}
 
-      <form className="chat-input-row" onSubmit={send}>
-        <textarea
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder="Type a message… (Enter to send)"
-          rows={1}
-        />
-        <button type="submit" className="btn btn-primary btn-sm" disabled={!text.trim() || sending}>
-          Send
-        </button>
-      </form>
+      {/* Match banner — active / paid */}
+      {match && (match.status === 'active' || match.status === 'paid') && (
+        <div className="match-banner match-banner--active">
+          <span className="match-banner-label">
+            Tutoring {match.status === 'paid' ? 'Active · Paid' : 'Active'}
+          </span>
+          {match.status === 'active' && (
+            <button
+              className="btn btn-sm"
+              style={{ background: 'rgba(255,255,255,.2)', color: 'white', border: 'none' }}
+              onClick={() => setShowPaymentModal(true)}
+            >
+              View Payment Link
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Extension request form */}
+      {showExtensionForm && (
+        <div className="extension-form">
+          <textarea
+            value={extensionReason}
+            onChange={(e) => setExtensionReason(e.target.value)}
+            placeholder="Reason for extension (optional)"
+            rows={2}
+            style={{ marginBottom: '.5rem' }}
+          />
+          <div style={{ display: 'flex', gap: '.5rem' }}>
+            <button className="btn btn-primary btn-sm" onClick={handleSubmitExtension}>Submit Request</button>
+            <button className="btn btn-secondary btn-sm" onClick={() => setShowExtensionForm(false)}>Cancel</button>
+          </div>
+        </div>
+      )}
+
+      {/* Payment modal */}
+      {showPaymentModal && (
+        <div className="modal-overlay" onClick={() => setShowPaymentModal(false)}>
+          <div className="modal-card" onClick={(e) => e.stopPropagation()}>
+            <h3 style={{ marginBottom: '.75rem', fontWeight: 800, color: 'var(--gray-900)' }}>
+              Activate Your Tutoring
+            </h3>
+            <p style={{ fontSize: '.9rem', color: 'var(--gray-600)', marginBottom: '1.25rem' }}>
+              Send <strong>₩1,000/month</strong> via Toss 송금 or bank transfer:
+            </p>
+            <div style={{
+              background: 'var(--gray-50)', border: '1px solid var(--gray-200)',
+              borderRadius: 'var(--radius-sm)', padding: '1rem', marginBottom: '1.25rem',
+              fontSize: '.9rem', lineHeight: 2,
+            }}>
+              <div><span style={{ color: 'var(--gray-400)', width: 60, display: 'inline-block' }}>은행</span> <strong>{PAYMENT_BANK}</strong></div>
+              <div><span style={{ color: 'var(--gray-400)', width: 60, display: 'inline-block' }}>계좌</span> <strong>{PAYMENT_ACCOUNT}</strong></div>
+              <div><span style={{ color: 'var(--gray-400)', width: 60, display: 'inline-block' }}>예금주</span> <strong>{PAYMENT_NAME}</strong></div>
+            </div>
+            <p style={{ fontSize: '.78rem', color: 'var(--gray-400)', marginBottom: '1.25rem' }}>
+              After payment the admin will mark your match as paid — you'll see the status update here.
+            </p>
+            <button className="btn btn-secondary btn-sm" onClick={() => setShowPaymentModal(false)}>
+              Close
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Expired state replaces the messages + input */}
+      {isExpired ? (
+        <div className="chat-expired">
+          <p style={{ fontSize: '1.5rem', marginBottom: '.5rem' }}>⏰</p>
+          <p style={{ fontWeight: 700, marginBottom: '.35rem' }}>This conversation has expired</p>
+          <p style={{ fontSize: '.85rem', color: 'var(--gray-400)' }}>
+            The 5-day decision window passed without a response.
+          </p>
+        </div>
+      ) : (
+        <>
+          <div className="chat-messages">
+            {messages.length === 0 && (
+              <div style={{ textAlign: 'center', color: 'var(--gray-400)', fontSize: '.85rem', marginTop: '2rem' }}>
+                No messages yet. Say hello!
+              </div>
+            )}
+            {messages.map((m) => {
+              const mine = m.sender_id === myId
+              return (
+                <div key={m.id}>
+                  <div className={`message-bubble ${mine ? 'mine' : 'theirs'}`}>{m.content}</div>
+                  <div className={`message-time ${mine ? '' : 'theirs'}`}>{formatTime(m.timestamp)}</div>
+                </div>
+              )
+            })}
+            <div ref={bottomRef} />
+          </div>
+
+          <form className="chat-input-row" onSubmit={send}>
+            <textarea
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder="Type a message… (Enter to send)"
+              rows={1}
+            />
+            <button type="submit" className="btn btn-primary btn-sm" disabled={!text.trim() || sending}>
+              Send
+            </button>
+          </form>
+        </>
+      )}
     </div>
   )
 }
