@@ -26,6 +26,7 @@ export default function Admin() {
   const [matches, setMatches] = useState([])
   const [extensions, setExtensions] = useState([])
   const [loading, setLoading] = useState(true)
+  const [monthInputs, setMonthInputs] = useState({}) // matchId → month count
 
   useEffect(() => {
     if (!profile || profile.email !== ADMIN_EMAIL) return
@@ -54,13 +55,19 @@ export default function Admin() {
   if (loading) return <div className="loading">Loading…</div>
 
   async function markPaid(matchId) {
+    const months = parseInt(monthInputs[matchId] ?? 1, 10) || 1
     const { data } = await supabase
       .from('matches')
-      .update({ status: 'paid' })
+      .update({ status: 'paid', paid_months: months })
       .eq('id', matchId)
       .select()
       .single()
-    if (data) setMatches((prev) => prev.map((m) => m.id === matchId ? { ...m, status: 'paid' } : m))
+    if (data) setMatches((prev) => prev.map((m) => m.id === matchId ? { ...m, status: 'paid', paid_months: months } : m))
+  }
+
+  async function deleteMatch(matchId) {
+    await supabase.from('matches').delete().eq('id', matchId)
+    setMatches((prev) => prev.filter((m) => m.id !== matchId))
   }
 
   async function acceptExtension(extId, matchId) {
@@ -104,6 +111,7 @@ export default function Admin() {
                   <th style={thStyle}>Status</th>
                   <th style={thStyle}>Created</th>
                   <th style={thStyle}>Expires</th>
+                  <th style={thStyle}>Months Paid</th>
                   <th style={thStyle}>Action</th>
                 </tr>
               </thead>
@@ -122,11 +130,31 @@ export default function Admin() {
                     <td style={tdStyle}>{new Date(m.created_at).toLocaleDateString()}</td>
                     <td style={tdStyle}>{new Date(m.expires_at).toLocaleDateString()}</td>
                     <td style={tdStyle}>
-                      {m.status === 'active' && (
-                        <button className="btn btn-primary btn-sm" onClick={() => markPaid(m.id)}>
-                          Mark Paid
+                      {m.status === 'paid'
+                        ? <span style={{ fontWeight: 700 }}>{m.paid_months}개월</span>
+                        : '—'}
+                    </td>
+                    <td style={tdStyle}>
+                      <div style={{ display: 'flex', gap: '.4rem', alignItems: 'center' }}>
+                        {m.status === 'active' && (
+                          <>
+                            <input
+                              type="number"
+                              min={1}
+                              value={monthInputs[m.id] ?? 1}
+                              onChange={(e) => setMonthInputs((prev) => ({ ...prev, [m.id]: e.target.value }))}
+                              style={{ width: 52, padding: '4px 6px', fontSize: '.8rem', textAlign: 'center' }}
+                            />
+                            <span style={{ fontSize: '.75rem', color: 'var(--gray-400)' }}>개월</span>
+                            <button className="btn btn-primary btn-sm" onClick={() => markPaid(m.id)}>
+                              Paid
+                            </button>
+                          </>
+                        )}
+                        <button className="btn btn-danger btn-sm" onClick={() => deleteMatch(m.id)}>
+                          Delete
                         </button>
-                      )}
+                      </div>
                     </td>
                   </tr>
                 ))}
