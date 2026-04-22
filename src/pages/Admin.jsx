@@ -63,6 +63,29 @@ export default function Admin() {
     if (data) setMatches((prev) => prev.map((m) => m.id === matchId ? { ...m, status: 'paid' } : m))
   }
 
+  async function acceptExtension(extId, matchId) {
+    const newExpiry = new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString()
+    await Promise.all([
+      supabase
+        .from('matches')
+        .update({ status: 'pending', expires_at: newExpiry })
+        .eq('id', matchId),
+      supabase
+        .from('extension_requests')
+        .delete()
+        .eq('id', extId),
+    ])
+    setExtensions((prev) => prev.filter((e) => e.id !== extId))
+    setMatches((prev) => prev.map((m) =>
+      m.id === matchId ? { ...m, status: 'pending', expires_at: newExpiry } : m
+    ))
+  }
+
+  async function rejectExtension(extId) {
+    await supabase.from('extension_requests').delete().eq('id', extId)
+    setExtensions((prev) => prev.filter((e) => e.id !== extId))
+  }
+
   return (
     <div className="content-wrap" style={{ paddingTop: '2rem' }}>
       <h1 className="page-title">Admin Dashboard</h1>
@@ -126,6 +149,7 @@ export default function Admin() {
                   <th style={thStyle}>Match Status</th>
                   <th style={thStyle}>Reason</th>
                   <th style={thStyle}>Date</th>
+                  <th style={thStyle}>Action</th>
                 </tr>
               </thead>
               <tbody>
@@ -135,6 +159,16 @@ export default function Admin() {
                     <td style={tdStyle}>{e.match ? <StatusBadge status={e.match.status} /> : '—'}</td>
                     <td style={tdStyle}>{e.reason || <span style={{ color: 'var(--gray-400)' }}>No reason given</span>}</td>
                     <td style={tdStyle}>{new Date(e.created_at).toLocaleDateString()}</td>
+                    <td style={tdStyle}>
+                      <div style={{ display: 'flex', gap: '.4rem' }}>
+                        <button className="btn btn-primary btn-sm" onClick={() => acceptExtension(e.id, e.match_id)}>
+                          Accept
+                        </button>
+                        <button className="btn btn-danger btn-sm" onClick={() => rejectExtension(e.id)}>
+                          Reject
+                        </button>
+                      </div>
+                    </td>
                   </tr>
                 ))}
               </tbody>
