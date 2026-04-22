@@ -1,10 +1,9 @@
 export const GRADE_LEVELS = [
   'Grade 9',
   'Grade 10',
-  'Grade 11',
-  'Grade 12',
   'IB Year 1',
   'IB Year 2',
+  'Graduated',
 ]
 
 export const SUBJECT_GROUPS = [

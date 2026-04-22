@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import SubjectPicker from '../components/SubjectPicker'
+import { GRADE_LEVELS } from '../lib/constants'
 
 function initials(name) {
   return name?.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase() || '?'
@@ -192,13 +193,14 @@ export default function Profile() {
 
           <div className="form-group">
             <label htmlFor="prof-grade">Grade / Year</label>
-            <input
+            <select
               id="prof-grade"
-              type="text"
               value={grade}
               onChange={(e) => setGrade(e.target.value)}
-              placeholder="e.g. Grade 10, IB Year 1"
-            />
+            >
+              <option value="">Select grade…</option>
+              {GRADE_LEVELS.map((g) => <option key={g} value={g}>{g}</option>)}
+            </select>
           </div>
 
           <hr className="divider" />
