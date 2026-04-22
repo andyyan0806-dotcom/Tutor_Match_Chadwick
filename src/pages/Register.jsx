@@ -1,7 +1,7 @@
 import { Fragment, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
-import { GRADE_LEVELS } from '../lib/constants'
+import { GRADE_LEVELS, cohortFromGrade } from '../lib/constants'
 
 const STEPS = ['Grade', 'Role', 'Details']
 
@@ -33,7 +33,7 @@ export default function Register() {
       id: userId,
       name,
       email,
-      grade,
+      cohort_year: cohortFromGrade(grade),
       role,
     })
     if (insertErr) { setError(insertErr.message); setLoading(false); return }

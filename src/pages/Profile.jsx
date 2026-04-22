@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import SubjectPicker from '../components/SubjectPicker'
-import { GRADE_LEVELS } from '../lib/constants'
+import { GRADE_LEVELS, cohortFromGrade } from '../lib/constants'
 
 function initials(name) {
   return name?.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase() || '?'
@@ -99,7 +99,7 @@ export default function Profile() {
     setSaving(true)
 
     const saves = [
-      supabase.from('users').update({ name: name.trim(), grade: grade.trim() }).eq('id', session.user.id),
+      supabase.from('users').update({ name: name.trim(), cohort_year: cohortFromGrade(grade) }).eq('id', session.user.id),
     ]
 
     if (isTutor) {
@@ -139,7 +139,7 @@ export default function Profile() {
       return
     }
 
-    setProfile({ ...profile, name: name.trim(), grade: grade.trim() })
+    setProfile({ ...profile, name: name.trim(), grade, cohort_year: cohortFromGrade(grade) })
     setSaved(true)
     setSaving(false)
     setTimeout(() => setSaved(false), 2500)

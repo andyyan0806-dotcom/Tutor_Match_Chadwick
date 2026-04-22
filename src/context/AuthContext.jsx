@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { gradeFromCohort } from '../lib/constants'
 
 const AuthContext = createContext(null)
 
@@ -22,7 +23,7 @@ export function AuthProvider({ children }) {
       .select('*')
       .eq('id', session.user.id)
       .single()
-      .then(({ data }) => setProfile(data))
+      .then(({ data }) => setProfile(data ? { ...data, grade: gradeFromCohort(data.cohort_year) } : null))
   }, [session])
 
   return (

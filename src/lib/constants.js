@@ -1,10 +1,35 @@
 export const GRADE_LEVELS = [
+  'Village School',
+  'Middle School',
   'Grade 9',
   'Grade 10',
   'IB Year 1',
   'IB Year 2',
   'Graduated',
 ]
+
+// cohort_year = the year the student enters/entered Grade 9
+// This is the fixed anchor — Grade 9 is index 2 in GRADE_LEVELS
+const GRADE9_IDX = 2
+
+// Returns the current academic year (starts August 1 each year)
+function academicYear() {
+  const now = new Date()
+  return now.getMonth() >= 7 ? now.getFullYear() : now.getFullYear() - 1
+}
+
+// Compute the display grade from the stored cohort year
+export function gradeFromCohort(cohortYear) {
+  if (!cohortYear) return ''
+  const idx = GRADE9_IDX + (academicYear() - cohortYear)
+  return GRADE_LEVELS[Math.min(Math.max(idx, 0), GRADE_LEVELS.length - 1)]
+}
+
+// Compute the cohort year to store from the selected grade
+export function cohortFromGrade(grade) {
+  const idx = GRADE_LEVELS.indexOf(grade)
+  return academicYear() - (idx < 0 ? 0 : idx - GRADE9_IDX)
+}
 
 export const SUBJECT_GROUPS = [
   {
