@@ -25,7 +25,7 @@ export default function TutorProfileSetup() {
   useEffect(() => {
     if (!session) return
     Promise.all([
-      supabase.from('tutor_profiles').select('*').eq('user_id', session.user.id).single(),
+      supabase.from('tutor_profiles').select('*').eq('user_id', session.user.id).maybeSingle(),
       supabase.from('posts').select('*').eq('tutor_id', session.user.id).maybeSingle(),
     ]).then(([{ data: tp }, { data: post }]) => {
       if (tp) {

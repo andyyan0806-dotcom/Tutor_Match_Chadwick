@@ -17,18 +17,34 @@ export default function Discovery() {
 
   useEffect(() => {
     async function load() {
-      const { data } = await supabase
-        .from('posts')
-        .select(`
-          id, title, subjects, description, tutor_id,
-          user:users!posts_tutor_id_fkey (
-            id, name, grade,
-            tutor_profiles ( university, uni_grade, photo_url ),
-            reviews ( rating )
-          )
-        `)
-        .eq('is_active', true)
-      setPosts(data || [])
+      const [{ data: postsData, error: postsError }, { data: reviewsData }] = await Promise.all([
+        supabase
+          .from('posts')
+          .select(`
+            id, title, subjects, description, tutor_id,
+            user:users!posts_tutor_id_fkey (
+              id, name, grade,
+              tutor_profiles ( university, uni_grade, photo_url )
+            )
+          `)
+          .eq('is_active', true),
+        supabase.from('reviews').select('tutor_id, rating'),
+      ])
+
+      if (postsError) console.error('Discovery posts error:', postsError)
+
+      const reviewMap = {}
+      for (const r of reviewsData || []) {
+        if (!reviewMap[r.tutor_id]) reviewMap[r.tutor_id] = []
+        reviewMap[r.tutor_id].push({ rating: r.rating })
+      }
+
+      const merged = (postsData || []).map((post) => ({
+        ...post,
+        user: post.user ? { ...post.user, reviews: reviewMap[post.tutor_id] || [] } : null,
+      }))
+
+      setPosts(merged)
       setLoading(false)
     }
     load()

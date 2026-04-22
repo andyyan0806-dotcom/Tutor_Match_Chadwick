@@ -46,7 +46,7 @@ export default function TutorProfile() {
           .maybeSingle(),
         supabase
           .from('reviews')
-          .select('*, student:users(name)')
+          .select('*, student:users!reviews_student_id_fkey(name)')
           .eq('tutor_id', id)
           .order('created_at', { ascending: false }),
       ])
