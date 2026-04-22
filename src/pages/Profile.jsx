@@ -2,34 +2,36 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import SubjectPicker from '../components/SubjectPicker'
-import { StarDisplay } from '../components/StarRating'
 
 function initials(name) {
   return name?.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase() || '?'
 }
 
-function formatDate(ts) {
-  return new Date(ts).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
-}
-
 export default function Profile() {
-  const { session, profile } = useAuth()
+  const { session, profile, setProfile } = useAuth()
   const isTutor = profile?.role === 'tutor'
 
-  // Tutor listing fields
-  const [title, setTitle] = useState('')
-  const [subjects, setSubjects] = useState([])
-  const [description, setDescription] = useState('')
-  const [isActive, setIsActive] = useState(true)
+  // Shared (users table)
+  const [name, setName] = useState('')
+  const [grade, setGrade] = useState('')
 
-  // Tutor profile identity fields
+  // Student only (student_profiles table)
+  const [studentPhoto, setStudentPhoto] = useState('')
+  const [intendedMajor, setIntendedMajor] = useState('')
+  const [intendedCollege, setIntendedCollege] = useState('')
+  const [classes, setClasses] = useState([])
+
+  // Tutor profile (tutor_profiles table)
   const [photoUrl, setPhotoUrl] = useState('')
   const [university, setUniversity] = useState('')
   const [uniGrade, setUniGrade] = useState('')
   const [ibScores, setIbScores] = useState('')
 
-  // Student reviews
-  const [myReviews, setMyReviews] = useState([])
+  // Tutor listing (posts table)
+  const [title, setTitle] = useState('')
+  const [subjects, setSubjects] = useState([])
+  const [description, setDescription] = useState('')
+  const [isActive, setIsActive] = useState(true)
 
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -38,11 +40,17 @@ export default function Profile() {
   const [photoError, setPhotoError] = useState(false)
 
   useEffect(() => {
+    if (!profile) return
+    setName(profile.name || '')
+    setGrade(profile.grade || '')
+  }, [profile])
+
+  useEffect(() => {
     if (!session) return
 
     if (isTutor) {
       Promise.all([
-        supabase.from('tutor_profiles').select('*').eq('user_id', session.user.id).single(),
+        supabase.from('tutor_profiles').select('*').eq('user_id', session.user.id).maybeSingle(),
         supabase.from('posts').select('*').eq('tutor_id', session.user.id).maybeSingle(),
       ]).then(([{ data: tp }, { data: post }]) => {
         if (tp) {
@@ -61,12 +69,17 @@ export default function Profile() {
       })
     } else {
       supabase
-        .from('reviews')
-        .select('*, tutor:users!reviews_tutor_id_fkey(name)')
-        .eq('student_id', session.user.id)
-        .order('created_at', { ascending: false })
-        .then(({ data }) => {
-          setMyReviews(data || [])
+        .from('student_profiles')
+        .select('*')
+        .eq('user_id', session.user.id)
+        .maybeSingle()
+        .then(({ data: sp }) => {
+          if (sp) {
+            setStudentPhoto(sp.photo_url || '')
+            setIntendedMajor(sp.intended_major || '')
+            setIntendedCollege(sp.intended_college || '')
+            setClasses(sp.classes || [])
+          }
           setLoading(false)
         })
     }
@@ -75,29 +88,57 @@ export default function Profile() {
   async function handleSave(e) {
     e.preventDefault()
     setError('')
-    if (subjects.length === 0) { setError('Please select at least one subject.'); return }
-    if (!title.trim()) { setError('Please add a listing title.'); return }
-    if (!description.trim()) { setError('Please write a session description.'); return }
+
+    if (isTutor) {
+      if (subjects.length === 0) { setError('Please select at least one subject.'); return }
+      if (!title.trim()) { setError('Please add a listing title.'); return }
+      if (!description.trim()) { setError('Please write a session description.'); return }
+    }
+
     setSaving(true)
 
-    const [{ error: profileErr }, { error: postErr }] = await Promise.all([
-      supabase.from('tutor_profiles').upsert({
-        user_id: session.user.id,
-        photo_url: photoUrl.trim() || null,
-        university: university.trim() || null,
-        uni_grade: uniGrade.trim() || null,
-        ib_scores: ibScores.trim() || null,
-      }, { onConflict: 'user_id' }),
-      supabase.from('posts').upsert({
-        tutor_id: session.user.id,
-        title: title.trim(),
-        subjects,
-        description: description.trim(),
-        is_active: isActive,
-      }, { onConflict: 'tutor_id' }),
-    ])
+    const saves = [
+      supabase.from('users').update({ name: name.trim(), grade: grade.trim() }).eq('id', session.user.id),
+    ]
 
-    if (profileErr || postErr) { setError((profileErr || postErr).message); setSaving(false); return }
+    if (isTutor) {
+      saves.push(
+        supabase.from('tutor_profiles').upsert({
+          user_id: session.user.id,
+          photo_url: photoUrl.trim() || null,
+          university: university.trim() || null,
+          uni_grade: uniGrade.trim() || null,
+          ib_scores: ibScores.trim() || null,
+        }, { onConflict: 'user_id' }),
+        supabase.from('posts').upsert({
+          tutor_id: session.user.id,
+          title: title.trim(),
+          subjects,
+          description: description.trim(),
+          is_active: isActive,
+        }, { onConflict: 'tutor_id' }),
+      )
+    } else {
+      saves.push(
+        supabase.from('student_profiles').upsert({
+          user_id: session.user.id,
+          photo_url: studentPhoto.trim() || null,
+          intended_major: intendedMajor.trim() || null,
+          intended_college: intendedCollege.trim() || null,
+          classes,
+        }, { onConflict: 'user_id' }),
+      )
+    }
+
+    const results = await Promise.all(saves)
+    const failed = results.find((r) => r.error)
+    if (failed) {
+      setError(failed.error.message)
+      setSaving(false)
+      return
+    }
+
+    setProfile({ ...profile, name: name.trim(), grade: grade.trim() })
     setSaved(true)
     setSaving(false)
     setTimeout(() => setSaved(false), 2500)
@@ -105,7 +146,9 @@ export default function Profile() {
 
   if (!profile || loading) return <div className="loading">Loading…</div>
 
-  const currentPhoto = photoUrl && !photoError ? photoUrl : null
+  const currentPhoto = isTutor
+    ? (photoUrl && !photoError ? photoUrl : null)
+    : (studentPhoto && !photoError ? studentPhoto : null)
 
   return (
     <div className="content-wrap">
@@ -113,143 +156,200 @@ export default function Profile() {
         {currentPhoto ? (
           <img
             src={currentPhoto}
-            alt={profile.name}
+            alt={name}
             className="avatar avatar-xl avatar-photo"
             onError={() => setPhotoError(true)}
           />
         ) : (
-          <div className="avatar avatar-xl">{initials(profile.name)}</div>
+          <div className="avatar avatar-xl">{initials(name)}</div>
         )}
         <div>
-          <div className="profile-page-name">{profile.name}</div>
-          <div className="profile-page-meta">{profile.grade}</div>
+          <div className="profile-page-name">{name}</div>
+          <div className="profile-page-meta">{grade}</div>
           <span className={`role-badge role-badge--${profile.role}`}>
-            {profile.role === 'tutor' ? 'Tutor' : 'Student'}
+            {isTutor ? 'Tutor' : 'Student'}
           </span>
         </div>
       </div>
 
-      {isTutor ? (
-        <div className="setup-card" style={{ marginTop: '1.5rem' }}>
-          <h2>My Listing</h2>
-          <p>This is how students find you. Keep it accurate and clear.</p>
+      <div className="setup-card" style={{ marginTop: '1.5rem' }}>
+        {error && <div className="error-msg">{error}</div>}
+        {saved && <div className="success-msg">Saved successfully.</div>}
 
-          {error && <div className="error-msg">{error}</div>}
-          {saved && <div className="success-msg">Saved successfully.</div>}
+        <form onSubmit={handleSave}>
+          <h3 className="section-heading">Basic Info</h3>
 
-          <form onSubmit={handleSave}>
-            <h3 className="section-heading">Listing</h3>
+          <div className="form-group">
+            <label htmlFor="prof-name">Name</label>
+            <input
+              id="prof-name"
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Your full name"
+            />
+          </div>
 
-            <div className="form-group">
-              <label>Listing title <span style={{ color: 'var(--red)' }}>*</span></label>
-              <input
-                type="text"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                placeholder="e.g. IB Mathematics & Physics Tutoring"
-              />
-            </div>
+          <div className="form-group">
+            <label htmlFor="prof-grade">Grade / Year</label>
+            <input
+              id="prof-grade"
+              type="text"
+              value={grade}
+              onChange={(e) => setGrade(e.target.value)}
+              placeholder="e.g. Grade 10, IB Year 1"
+            />
+          </div>
 
-            <div className="form-group">
-              <label>Subjects <span style={{ color: 'var(--red)' }}>*</span></label>
-              <SubjectPicker selected={subjects} onChange={setSubjects} />
-            </div>
+          <hr className="divider" />
 
-            <div className="form-group">
-              <label>Session description / teaching approach <span style={{ color: 'var(--red)' }}>*</span></label>
-              <textarea
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="Describe your tutoring style, what sessions look like, and how you help students…"
-                rows={4}
-              />
-            </div>
+          {isTutor ? (
+            <>
+              <h3 className="section-heading">Profile</h3>
 
-            <div className="form-group" style={{ display: 'flex', alignItems: 'center', gap: '.75rem' }}>
-              <input
-                type="checkbox"
-                id="active"
-                checked={isActive}
-                onChange={(e) => setIsActive(e.target.checked)}
-                style={{ width: 'auto' }}
-              />
-              <label htmlFor="active" style={{ margin: 0, cursor: 'pointer' }}>
-                Listing is active (visible to students)
-              </label>
-            </div>
-
-            <hr className="divider" />
-            <h3 className="section-heading">Profile (optional)</h3>
-
-            <div className="form-group">
-              <label>Profile photo URL</label>
-              <input
-                type="url"
-                value={photoUrl}
-                onChange={(e) => { setPhotoUrl(e.target.value); setPhotoError(false) }}
-                placeholder="https://…"
-              />
-            </div>
-
-            <div className="form-group">
-              <label>University attending or planning to attend</label>
-              <input
-                type="text"
-                value={university}
-                onChange={(e) => setUniversity(e.target.value)}
-                placeholder="e.g. Seoul National University"
-              />
-            </div>
-
-            <div className="form-group">
-              <label>University year / grade</label>
-              <input
-                type="text"
-                value={uniGrade}
-                onChange={(e) => setUniGrade(e.target.value)}
-                placeholder="e.g. 2nd year, Freshman"
-              />
-            </div>
-
-            <div className="form-group">
-              <label>Academic grades or IB predicted scores</label>
-              <input
-                type="text"
-                value={ibScores}
-                onChange={(e) => setIbScores(e.target.value)}
-                placeholder="e.g. Predicted 42/45, Maths AA HL: 7"
-              />
-            </div>
-
-            <button type="submit" className="btn btn-primary btn-full" disabled={saving}>
-              {saving ? 'Saving…' : 'Save'}
-            </button>
-          </form>
-        </div>
-      ) : (
-        <div className="setup-card" style={{ marginTop: '1.5rem' }}>
-          <h2>My Reviews</h2>
-          <p>Reviews you've submitted for tutors.</p>
-          {myReviews.length === 0 ? (
-            <div className="empty-state" style={{ padding: '2rem 0' }}>
-              <p>You haven't reviewed any tutors yet.</p>
-            </div>
-          ) : (
-            myReviews.map((rev) => (
-              <div key={rev.id} className="review-item">
-                <div className="review-header">
-                  <span className="stars" style={{ color: 'var(--yellow)', fontSize: '.9rem' }}>
-                    {'★'.repeat(rev.rating)}{'☆'.repeat(5 - rev.rating)}
-                  </span>
-                  <span className="review-author">{rev.tutor?.name}</span>
-                  <span className="review-date">{formatDate(rev.created_at)}</span>
-                </div>
-                {rev.comment && <div className="review-comment">{rev.comment}</div>}
+              <div className="form-group">
+                <label htmlFor="prof-photo">Profile photo URL</label>
+                <input
+                  id="prof-photo"
+                  type="url"
+                  value={photoUrl}
+                  onChange={(e) => { setPhotoUrl(e.target.value); setPhotoError(false) }}
+                  placeholder="https://…"
+                />
               </div>
-            ))
+
+              <div className="form-group">
+                <label htmlFor="prof-university">University</label>
+                <input
+                  id="prof-university"
+                  type="text"
+                  value={university}
+                  onChange={(e) => setUniversity(e.target.value)}
+                  placeholder="e.g. Seoul National University"
+                />
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="prof-uni-grade">University year / grade</label>
+                <input
+                  id="prof-uni-grade"
+                  type="text"
+                  value={uniGrade}
+                  onChange={(e) => setUniGrade(e.target.value)}
+                  placeholder="e.g. 2nd year, Freshman"
+                />
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="prof-ib">Academic grades or IB predicted scores</label>
+                <input
+                  id="prof-ib"
+                  type="text"
+                  value={ibScores}
+                  onChange={(e) => setIbScores(e.target.value)}
+                  placeholder="e.g. Predicted 42/45, Maths AA HL: 7"
+                />
+              </div>
+
+              <hr className="divider" />
+              <h3 className="section-heading">My Listing</h3>
+              <p style={{ color: 'var(--gray)', fontSize: '.9rem', marginTop: '-.5rem', marginBottom: '1rem' }}>
+                This is how students find you on the Discovery page.
+              </p>
+
+              <div className="form-group">
+                <label htmlFor="prof-title">Listing title <span style={{ color: 'var(--red)' }}>*</span></label>
+                <input
+                  id="prof-title"
+                  type="text"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  placeholder="e.g. IB Mathematics & Physics Tutoring"
+                />
+              </div>
+
+              <div className="form-group">
+                <label>Subjects <span style={{ color: 'var(--red)' }}>*</span></label>
+                <SubjectPicker selected={subjects} onChange={setSubjects} />
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="prof-desc">Session description <span style={{ color: 'var(--red)' }}>*</span></label>
+                <textarea
+                  id="prof-desc"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  placeholder="Describe your tutoring style and how you help students…"
+                  rows={4}
+                />
+              </div>
+
+              <div className="form-group" style={{ display: 'flex', alignItems: 'center', gap: '.75rem' }}>
+                <input
+                  type="checkbox"
+                  id="prof-active"
+                  checked={isActive}
+                  onChange={(e) => setIsActive(e.target.checked)}
+                  style={{ width: 'auto' }}
+                />
+                <label htmlFor="prof-active" style={{ margin: 0, cursor: 'pointer' }}>
+                  Listing is active (visible to students)
+                </label>
+              </div>
+            </>
+          ) : (
+            <>
+              <h3 className="section-heading">Profile</h3>
+
+              <div className="form-group">
+                <label htmlFor="stud-photo">Profile photo URL</label>
+                <input
+                  id="stud-photo"
+                  type="url"
+                  value={studentPhoto}
+                  onChange={(e) => { setStudentPhoto(e.target.value); setPhotoError(false) }}
+                  placeholder="https://…"
+                />
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="stud-major">Intended major</label>
+                <input
+                  id="stud-major"
+                  type="text"
+                  value={intendedMajor}
+                  onChange={(e) => setIntendedMajor(e.target.value)}
+                  placeholder="e.g. Computer Science, Pre-Medicine"
+                />
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="stud-college">Intended college / university</label>
+                <input
+                  id="stud-college"
+                  type="text"
+                  value={intendedCollege}
+                  onChange={(e) => setIntendedCollege(e.target.value)}
+                  placeholder="e.g. MIT, Seoul National University"
+                />
+              </div>
+
+              <hr className="divider" />
+              <h3 className="section-heading">Classes</h3>
+              <p style={{ color: 'var(--gray)', fontSize: '.9rem', marginTop: '-.5rem', marginBottom: '1rem' }}>
+                Select the subjects you're currently taking.
+              </p>
+              <SubjectPicker selected={classes} onChange={setClasses} />
+            </>
           )}
-        </div>
-      )}
+
+          <div style={{ marginTop: '1.5rem' }}>
+            <button type="submit" className="btn btn-primary btn-full" disabled={saving}>
+              {saving ? 'Saving…' : 'Save profile'}
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
   )
 }
