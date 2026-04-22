@@ -9,6 +9,7 @@ import Discovery from './pages/Discovery'
 import TutorProfile from './pages/TutorProfile'
 import Messages from './pages/Messages'
 import Conversation from './pages/Conversation'
+import Settings from './pages/Settings'
 
 function ProtectedRoute({ children }) {
   const { session } = useAuth()
@@ -31,6 +32,7 @@ export default function App() {
           <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
           <Route path="/discovery" element={<ProtectedRoute><Discovery /></ProtectedRoute>} />
           <Route path="/tutor/:id" element={<ProtectedRoute><TutorProfile /></ProtectedRoute>} />
+          <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
           <Route path="/messages" element={<ProtectedRoute><Messages /></ProtectedRoute>}>
             <Route path=":userId" element={<Conversation />} />
           </Route>

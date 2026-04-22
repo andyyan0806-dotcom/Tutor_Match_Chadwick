@@ -20,6 +20,7 @@ export default function Navbar() {
         <NavLink to="/discovery" className={linkClass}>Find Tutors</NavLink>
         <NavLink to="/messages" className={linkClass}>Messages</NavLink>
         <NavLink to="/profile" className={linkClass}>My Profile</NavLink>
+        <NavLink to="/settings" className={linkClass}>Settings</NavLink>
       </div>
       <div className="navbar-right">
         {profile && (
