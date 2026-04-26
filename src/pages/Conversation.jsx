@@ -306,15 +306,18 @@ export default function Conversation() {
             </p>
             <div style={{
               background: 'var(--gray-50)', border: '1px solid var(--gray-200)',
-              borderRadius: 'var(--radius-sm)', padding: '1rem', marginBottom: '1.25rem',
+              borderRadius: 'var(--radius-sm)', padding: '1rem', marginBottom: '1rem',
               fontSize: '.9rem', lineHeight: 2,
             }}>
-              <div><span style={{ color: 'var(--gray-400)', width: 60, display: 'inline-block' }}>은행</span> <strong>{PAYMENT_BANK}</strong></div>
-              <div><span style={{ color: 'var(--gray-400)', width: 60, display: 'inline-block' }}>계좌</span> <strong>{PAYMENT_ACCOUNT}</strong></div>
-              <div><span style={{ color: 'var(--gray-400)', width: 60, display: 'inline-block' }}>예금주</span> <strong>{PAYMENT_NAME}</strong></div>
+              <div><span style={{ color: 'var(--gray-400)', width: 72, display: 'inline-block' }}>은행</span> <strong>{PAYMENT_BANK}</strong></div>
+              <div><span style={{ color: 'var(--gray-400)', width: 72, display: 'inline-block' }}>계좌번호</span> <strong>{PAYMENT_ACCOUNT}</strong></div>
+              <div><span style={{ color: 'var(--gray-400)', width: 72, display: 'inline-block' }}>예금주</span> <strong>{PAYMENT_NAME}</strong></div>
+              <div style={{ borderTop: '1px solid var(--gray-200)', marginTop: '.5rem', paddingTop: '.5rem' }}>
+                <span style={{ color: 'var(--gray-400)', width: 72, display: 'inline-block' }}>입금자명</span> <strong style={{ color: 'var(--blue)' }}>{profile?.name}</strong>
+              </div>
             </div>
-            <p style={{ fontSize: '.78rem', color: 'var(--gray-400)', marginBottom: '1.25rem' }}>
-              After payment the admin will mark your match as paid — you'll see the status update here.
+            <p style={{ fontSize: '.8rem', color: 'var(--gray-400)', marginBottom: '1.25rem' }}>
+              송금 확인까지 최대 6시간이 소요될 수 있습니다.
             </p>
             <button className="btn btn-secondary btn-sm" onClick={() => setShowPaymentModal(false)}>
               Close

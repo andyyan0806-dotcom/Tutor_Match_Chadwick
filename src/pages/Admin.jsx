@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { Navigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
+import { GRADE_LEVELS, cohortFromGrade, gradeFromCohort } from '../lib/constants'
 
 const ADMIN_EMAIL = 'andyyan0806@gmail.com'
 
@@ -27,12 +28,14 @@ export default function Admin() {
   const [extensions, setExtensions] = useState([])
   const [loading, setLoading] = useState(true)
   const [monthInputs, setMonthInputs] = useState({}) // matchId → month count
+  const [users, setUsers] = useState([])
+  const [gradeEdits, setGradeEdits] = useState({}) // userId → selected grade string
 
   useEffect(() => {
     if (!profile || profile.email !== ADMIN_EMAIL) return
 
     async function load() {
-      const [{ data: matchData }, { data: extData }] = await Promise.all([
+      const [{ data: matchData }, { data: extData }, { data: userData }] = await Promise.all([
         supabase
           .from('matches')
           .select('*, student:users!student_id(name, email), tutor:users!tutor_id(name, email)')
@@ -41,9 +44,14 @@ export default function Admin() {
           .from('extension_requests')
           .select('*, requester:users!requested_by(name), match:matches(status)')
           .order('created_at', { ascending: false }),
+        supabase
+          .from('users')
+          .select('id, name, email, grade, cohort_year, role')
+          .order('created_at', { ascending: false }),
       ])
       setMatches(matchData || [])
       setExtensions(extData || [])
+      setUsers(userData || [])
       setLoading(false)
     }
 
@@ -91,6 +99,17 @@ export default function Admin() {
   async function rejectExtension(extId) {
     await supabase.from('extension_requests').delete().eq('id', extId)
     setExtensions((prev) => prev.filter((e) => e.id !== extId))
+  }
+
+  async function saveGrade(userId) {
+    const grade = gradeEdits[userId]
+    if (!grade) return
+    await supabase
+      .from('users')
+      .update({ cohort_year: cohortFromGrade(grade), grade })
+      .eq('id', userId)
+    setUsers((prev) => prev.map((u) => u.id === userId ? { ...u, grade, cohort_year: cohortFromGrade(grade) } : u))
+    setGradeEdits((prev) => { const next = { ...prev }; delete next[userId]; return next })
   }
 
   return (
@@ -162,6 +181,56 @@ export default function Admin() {
             </table>
           </div>
         )}
+      </section>
+
+      <section style={{ marginBottom: '3rem' }}>
+        <h2 className="section-title">Users ({users.length})</h2>
+        <div style={{ background: 'white', borderRadius: 'var(--radius)', boxShadow: 'var(--shadow)', border: '1px solid var(--gray-100)', overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr style={{ borderBottom: '1px solid var(--gray-100)' }}>
+                <th style={thStyle}>Name</th>
+                <th style={thStyle}>Email</th>
+                <th style={thStyle}>Role</th>
+                <th style={thStyle}>Current Grade</th>
+                <th style={thStyle}>Set Grade</th>
+              </tr>
+            </thead>
+            <tbody>
+              {users.map((u) => {
+                const displayGrade = u.cohort_year ? gradeFromCohort(u.cohort_year) : (u.grade || '')
+                const hasGrade = !!displayGrade
+                return (
+                  <tr key={u.id} style={{ borderBottom: '1px solid var(--gray-100)', background: hasGrade ? 'transparent' : '#fffbeb' }}>
+                    <td style={{ ...tdStyle, fontWeight: 600 }}>{u.name}</td>
+                    <td style={{ ...tdStyle, color: 'var(--gray-400)', fontSize: '.8rem' }}>{u.email}</td>
+                    <td style={tdStyle}><StatusBadge status={u.role} /></td>
+                    <td style={tdStyle}>{displayGrade || <span style={{ color: 'var(--yellow)', fontWeight: 600 }}>Missing</span>}</td>
+                    <td style={tdStyle}>
+                      <div style={{ display: 'flex', gap: '.4rem', alignItems: 'center' }}>
+                        <select
+                          value={gradeEdits[u.id] ?? ''}
+                          onChange={(e) => setGradeEdits((prev) => ({ ...prev, [u.id]: e.target.value }))}
+                          style={{ padding: '4px 6px', fontSize: '.8rem', width: 140 }}
+                        >
+                          <option value="">Select…</option>
+                          {GRADE_LEVELS.map((g) => <option key={g} value={g}>{g}</option>)}
+                        </select>
+                        <button
+                          className="btn btn-primary btn-sm"
+                          disabled={!gradeEdits[u.id]}
+                          onClick={() => saveGrade(u.id)}
+                        >
+                          Save
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
       </section>
 
       <section>

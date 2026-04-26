@@ -23,7 +23,11 @@ export function AuthProvider({ children }) {
       .select('*')
       .eq('id', session.user.id)
       .single()
-      .then(({ data }) => setProfile(data ? { ...data, grade: gradeFromCohort(data.cohort_year) } : null))
+      .then(({ data }) => {
+        if (!data) { setProfile(null); return }
+        const grade = data.cohort_year ? gradeFromCohort(data.cohort_year) : (data.grade || '')
+        setProfile({ ...data, grade })
+      })
   }, [session])
 
   return (
