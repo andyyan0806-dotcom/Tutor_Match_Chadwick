@@ -378,6 +378,7 @@ export default function Conversation() {
                 <>
                   <div style={{ display: 'flex', gap: '.5rem' }}>
                     <input
+                      id="promo-code"
                       type="text"
                       value={promoCode}
                       onChange={(e) => { setPromoCode(e.target.value.toUpperCase()); setPromoError('') }}

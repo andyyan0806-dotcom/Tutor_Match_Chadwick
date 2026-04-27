@@ -185,6 +185,7 @@ export default function Admin() {
                         {m.status === 'active' && (
                           <>
                             <input
+                              id={`months-${m.id}`}
                               type="number"
                               min={1}
                               value={monthInputs[m.id] ?? 1}
@@ -266,6 +267,7 @@ export default function Admin() {
           <div>
             <label style={{ display: 'block', fontSize: '.75rem', fontWeight: 600, color: 'var(--gray-500)', marginBottom: '.3rem', textTransform: 'uppercase', letterSpacing: '.04em' }}>Code</label>
             <input
+              id="promo-new-code"
               type="text"
               value={newCode}
               onChange={(e) => setNewCode(e.target.value.toUpperCase())}
@@ -276,6 +278,7 @@ export default function Admin() {
           <div>
             <label style={{ display: 'block', fontSize: '.75rem', fontWeight: 600, color: 'var(--gray-500)', marginBottom: '.3rem', textTransform: 'uppercase', letterSpacing: '.04em' }}>Days</label>
             <input
+              id="promo-new-days"
               type="number"
               min={1}
               value={newDays}
