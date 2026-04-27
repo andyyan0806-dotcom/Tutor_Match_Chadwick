@@ -36,6 +36,10 @@ export default function Conversation() {
   const [extensionReason, setExtensionReason] = useState('')
   const [extensionSubmitted, setExtensionSubmitted] = useState(false)
   const [showPaymentModal, setShowPaymentModal] = useState(false)
+  const [promoCode, setPromoCode] = useState('')
+  const [promoError, setPromoError] = useState('')
+  const [promoApplied, setPromoApplied] = useState(false)
+  const [applyingPromo, setApplyingPromo] = useState(false)
   const bottomRef = useRef(null)
 
   // Fetch partner (include role so we can determine student/tutor)
@@ -216,6 +220,50 @@ export default function Conversation() {
     }
   }
 
+  async function handleApplyPromo() {
+    if (!promoCode.trim() || !match) return
+    setApplyingPromo(true)
+    setPromoError('')
+
+    const { data: code } = await supabase
+      .from('promo_codes')
+      .select('*')
+      .eq('code', promoCode.trim().toUpperCase())
+      .maybeSingle()
+
+    if (!code) {
+      setPromoError('Invalid promo code.')
+      setApplyingPromo(false)
+      return
+    }
+    if (code.used_by) {
+      setPromoError('This code has already been used.')
+      setApplyingPromo(false)
+      return
+    }
+
+    const now = new Date().toISOString()
+    const [{ error: codeErr }, { error: matchErr }] = await Promise.all([
+      supabase.from('promo_codes')
+        .update({ used_by: myId, used_at: now })
+        .eq('id', code.id)
+        .is('used_by', null),
+      supabase.from('matches')
+        .update({ status: 'paid', activated_at: now, paid_months: Math.ceil(code.days / 30) || 1 })
+        .eq('id', match.id),
+    ])
+
+    if (codeErr || matchErr) {
+      setPromoError('Could not apply code — it may have just been used. Try again.')
+      setApplyingPromo(false)
+      return
+    }
+
+    setMatch((prev) => ({ ...prev, status: 'paid', activated_at: now }))
+    setPromoApplied(true)
+    setApplyingPromo(false)
+  }
+
   const isExpired = match?.status === 'expired' ||
     (match?.status === 'pending' && new Date(match?.expires_at) < new Date())
 
@@ -319,6 +367,38 @@ export default function Conversation() {
             <p style={{ fontSize: '.8rem', color: 'var(--gray-400)', marginBottom: '1.25rem' }}>
               송금 확인까지 최대 6시간이 소요될 수 있습니다.
             </p>
+
+            <div style={{ borderTop: '1px solid var(--gray-100)', paddingTop: '1rem', marginBottom: '1rem' }}>
+              <p style={{ fontSize: '.8rem', fontWeight: 600, color: 'var(--gray-600)', marginBottom: '.5rem' }}>
+                Have a promo code?
+              </p>
+              {promoApplied ? (
+                <p style={{ fontSize: '.85rem', color: '#15803d', fontWeight: 600 }}>Promo code applied!</p>
+              ) : (
+                <>
+                  <div style={{ display: 'flex', gap: '.5rem' }}>
+                    <input
+                      type="text"
+                      value={promoCode}
+                      onChange={(e) => { setPromoCode(e.target.value.toUpperCase()); setPromoError('') }}
+                      placeholder="ENTER CODE"
+                      style={{ flex: 1, padding: '.45rem .75rem', fontSize: '.85rem', textTransform: 'uppercase', letterSpacing: '.05em' }}
+                    />
+                    <button
+                      className="btn btn-primary btn-sm"
+                      onClick={handleApplyPromo}
+                      disabled={!promoCode.trim() || applyingPromo}
+                    >
+                      {applyingPromo ? '…' : 'Apply'}
+                    </button>
+                  </div>
+                  {promoError && (
+                    <p style={{ fontSize: '.78rem', color: 'var(--red)', marginTop: '.4rem' }}>{promoError}</p>
+                  )}
+                </>
+              )}
+            </div>
+
             <button className="btn btn-secondary btn-sm" onClick={() => setShowPaymentModal(false)}>
               Close
             </button>

@@ -29,13 +29,16 @@ export default function Admin() {
   const [loading, setLoading] = useState(true)
   const [monthInputs, setMonthInputs] = useState({}) // matchId → month count
   const [users, setUsers] = useState([])
-  const [gradeEdits, setGradeEdits] = useState({}) // userId → selected grade string
+  const [gradeEdits, setGradeEdits] = useState({})
+  const [promoCodes, setPromoCodes] = useState([])
+  const [newCode, setNewCode] = useState('')
+  const [newDays, setNewDays] = useState(30)
 
   useEffect(() => {
     if (!profile || profile.email !== ADMIN_EMAIL) return
 
     async function load() {
-      const [{ data: matchData }, { data: extData }, { data: userData }] = await Promise.all([
+      const [{ data: matchData }, { data: extData }, { data: userData }, { data: promoData }] = await Promise.all([
         supabase
           .from('matches')
           .select('*, student:users!student_id(name, email), tutor:users!tutor_id(name, email)')
@@ -48,10 +51,15 @@ export default function Admin() {
           .from('users')
           .select('id, name, email, grade, cohort_year, role')
           .order('created_at', { ascending: false }),
+        supabase
+          .from('promo_codes')
+          .select('*, used_by_user:users!used_by(name)')
+          .order('created_at', { ascending: false }),
       ])
       setMatches(matchData || [])
       setExtensions(extData || [])
       setUsers(userData || [])
+      setPromoCodes(promoData || [])
       setLoading(false)
     }
 
@@ -110,6 +118,25 @@ export default function Admin() {
       .eq('id', userId)
     setUsers((prev) => prev.map((u) => u.id === userId ? { ...u, grade, cohort_year: cohortFromGrade(grade) } : u))
     setGradeEdits((prev) => { const next = { ...prev }; delete next[userId]; return next })
+  }
+
+  async function createPromoCode() {
+    if (!newCode.trim() || !newDays) return
+    const { data, error } = await supabase
+      .from('promo_codes')
+      .insert({ code: newCode.trim().toUpperCase(), days: parseInt(newDays, 10) })
+      .select()
+      .single()
+    if (!error && data) {
+      setPromoCodes((prev) => [data, ...prev])
+      setNewCode('')
+      setNewDays(30)
+    }
+  }
+
+  async function deletePromoCode(id) {
+    await supabase.from('promo_codes').delete().eq('id', id)
+    setPromoCodes((prev) => prev.filter((p) => p.id !== id))
   }
 
   return (
@@ -231,6 +258,72 @@ export default function Admin() {
             </tbody>
           </table>
         </div>
+      </section>
+
+      <section style={{ marginBottom: '3rem' }}>
+        <h2 className="section-title">Promo Codes</h2>
+        <div style={{ display: 'flex', gap: '.75rem', alignItems: 'flex-end', marginBottom: '1rem' }}>
+          <div>
+            <label style={{ display: 'block', fontSize: '.75rem', fontWeight: 600, color: 'var(--gray-500)', marginBottom: '.3rem', textTransform: 'uppercase', letterSpacing: '.04em' }}>Code</label>
+            <input
+              type="text"
+              value={newCode}
+              onChange={(e) => setNewCode(e.target.value.toUpperCase())}
+              placeholder="e.g. STUNION30"
+              style={{ width: 180, padding: '.45rem .75rem', fontSize: '.875rem', letterSpacing: '.05em' }}
+            />
+          </div>
+          <div>
+            <label style={{ display: 'block', fontSize: '.75rem', fontWeight: 600, color: 'var(--gray-500)', marginBottom: '.3rem', textTransform: 'uppercase', letterSpacing: '.04em' }}>Days</label>
+            <input
+              type="number"
+              min={1}
+              value={newDays}
+              onChange={(e) => setNewDays(e.target.value)}
+              style={{ width: 80, padding: '.45rem .75rem', fontSize: '.875rem' }}
+            />
+          </div>
+          <button className="btn btn-primary btn-sm" onClick={createPromoCode} disabled={!newCode.trim() || !newDays}>
+            Create Code
+          </button>
+        </div>
+
+        {promoCodes.length === 0 ? (
+          <p style={{ color: 'var(--gray-400)' }}>No promo codes yet.</p>
+        ) : (
+          <div style={{ background: 'white', borderRadius: 'var(--radius)', boxShadow: 'var(--shadow)', border: '1px solid var(--gray-100)', overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead>
+                <tr style={{ borderBottom: '1px solid var(--gray-100)' }}>
+                  <th style={thStyle}>Code</th>
+                  <th style={thStyle}>Days</th>
+                  <th style={thStyle}>Status</th>
+                  <th style={thStyle}>Used By</th>
+                  <th style={thStyle}>Used At</th>
+                  <th style={thStyle}>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {promoCodes.map((p) => (
+                  <tr key={p.id} style={{ borderBottom: '1px solid var(--gray-100)' }}>
+                    <td style={{ ...tdStyle, fontWeight: 700, letterSpacing: '.05em' }}>{p.code}</td>
+                    <td style={tdStyle}>{p.days}일</td>
+                    <td style={tdStyle}>
+                      {p.used_by
+                        ? <span style={{ padding: '2px 10px', borderRadius: 20, fontSize: '.73rem', fontWeight: 700, background: '#94a3b820', color: '#94a3b8' }}>Used</span>
+                        : <span style={{ padding: '2px 10px', borderRadius: 20, fontSize: '.73rem', fontWeight: 700, background: '#22c55e20', color: '#22c55e' }}>Active</span>}
+                    </td>
+                    <td style={tdStyle}>{p.used_by_user?.name || '—'}</td>
+                    <td style={tdStyle}>{p.used_at ? new Date(p.used_at).toLocaleDateString() : '—'}</td>
+                    <td style={tdStyle}>
+                      <button className="btn btn-danger btn-sm" onClick={() => deletePromoCode(p.id)}>Delete</button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </section>
 
       <section>
